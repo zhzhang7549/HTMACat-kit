@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import itertools
 import networkx as nx
 import numpy as np
-import scipy
+import scipy, copy
 
 radii = defaults.get("radii")
 
@@ -609,10 +609,32 @@ class Builder(AdsorptionSites):
                 rotated_positions = atoms.get_positions()
                 #center_x_m, center_y_m = utils.center_molecule(rotated_positions)
                 #print("分子中心坐标 (x, y):", center_x_m, center_y_m)
-
-
-
-
+            elif direction_mode == 'hetero': # zjwang 20240815
+                # 适用于有明确“官能团”的偏链状的分子
+                # 求出从分子杂原子中心到所有原子中心的吸附矢量vec_p，将vec_p旋转到[0,0,1]竖直向上
+                # 加旋转：将此时的分子绕z轴分别旋转：
+                # 加偏斜：将此时的[0,0,1]分别旋转至：
+                # 共3*5=15个atoms对象
+                # hetero模式下无条件以最靠近杂原子形心的原子id作为bond
+                print('===== hetero group mode =====')
+                atoms_list = [] # list of <atoms>
+                vec_p, centroid, centroid_hetero = utils.solve_normal_vector_hetero(atoms.get_positions(), atoms.get_chemical_symbols()) # hetero模式最好不设置bond原子，无意义重复（等于平移）
+                # 先确定bond原子id
+                d_min = 100
+                for idx_a,pos in enumerate(atoms.get_positions()):
+                    d = np.sqrt( np.sum( np.dot(pos-centroid_hetero,pos-centroid_hetero) ) )
+                    if d < d_min:
+                        d_min = d
+                        bond = idx_a
+                print(' bond, symbol, d_min_to_centroid_hetero =', bond, atoms.get_chemical_symbols()[bond], d_min)
+                # 再对atoms坐标进行操作
+                atoms.rotate(vec_p, [0, 0, 1])
+                for deg in [0, 72, 144, 216, 288]: # 先旋转再偏斜，与表面接触处的变化更多样
+                    for vec_bias in [[0,0,1], [0.2,0,1], [0,0.2,1], [-0.2,0,1], [0,-0.2,1]]:
+                        atoms_list.append(copy.deepcopy(atoms))
+                        atoms_list[-1].rotate([0,0,1], vec_bias) # 吸附矢量偏斜
+                        atoms_list[-1].rotate(deg, [0,0,1])# 绕z轴旋转
+                print('*** len(atoms_list) =', len(atoms_list))
             else: # direction_mode == 'default':
                 atoms.rotate([0, 0, 1], vector)
             # 再在xoy平面中旋转物种以避免重叠（思路：投影“长轴”与rotation_args['vec_to_neigh_imgsite']垂直）
@@ -629,6 +651,38 @@ class Builder(AdsorptionSites):
                 ### print('target_vec:\n', target_vec)
                 atoms.rotate([principle_axe[0], principle_axe[1], 0], target_vec)
         
+        
+        # zjwang 20240815
+        if direction_mode == 'hetero':
+            max_z = np.max(slab.get_positions()[:,2]) #获取slabz轴最大值
+            n = len(slab)
+            slabs_list = []
+            score_configurations = [] # 各个吸附构型(slab)的“分数”
+            for ia,a in enumerate(atoms_list):
+                slabs_list.append(copy.deepcopy(slab))
+                dealt_positions = a.get_positions()
+                min_z = np.min(dealt_positions[:,2]) #得到分子z轴最小值
+                base_position[2] = max_z - min_z + 1.8 # 吸附物种最低原子应在slab以上1.8A
+                a.translate(base_position)
+                slabs_list[-1] += a
+                # Add graph connections
+                for metal_index in self.index[u]:
+                    slabs_list[-1].graph.add_edge(metal_index, bond + n)
+                #
+                # show & write log (mainly for score_configurations)
+                score_configurations.append( utils.score_configuration_hetero(coords=slabs_list[-1].get_positions(),
+                                                                              symbols=slabs_list[-1].get_chemical_symbols(),
+                                                                              z_surf=max_z) )
+                str_log = str(ia) + ' | score = ' + str(np.round(score_configurations[-1],3)).ljust(8) + '(x,y,z): ' + str(base_position)
+                ### print(str_log)
+                with open('score_log.txt', 'a') as f:
+                    f.write(str_log+'\n')
+            with open('score_log.txt', 'a') as f:
+                f.write('\n')
+                f.write('Ranking configurations by their scores:\n')
+                for i,idx in enumerate(np.argsort(score_configurations)[::-1]):
+                    f.write(str(i).ljust(4)+':    '+str(idx).ljust(8)+str(score_configurations[idx])+'\n')
+            return slabs_list
         
         #lbx
         if base_position[2] == 0.0:
@@ -652,6 +706,7 @@ class Builder(AdsorptionSites):
             slab += atoms
             #lbx:slab为增加分子后的坐标,base_position[2]为config输入的z
         else:
+            # print('base_position:', len(base_position), '\n', base_position)
             base_position[2] = base_position[2] + z_bias
             atoms.translate(base_position)
             n = len(slab)
