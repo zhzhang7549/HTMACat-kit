@@ -395,10 +395,10 @@ def score_configuration_hetero(coords, symbols, z_surf):
             tmp_distl = []
             tmp_rsuml = []
             for idxn,coordn in enumerate(coords):
-                if abs(coordn[2] - z_surf) < 0.1:
+                if abs(coordn[2] - z_surf) < 1.0:
                     d = np.sqrt( np.sum( np.dot(coord-coordn,coord-coordn) ) )
                     rsum = covalent_radii[atomic_numbers[symbols[idx]]] + covalent_radii[atomic_numbers[symbols[idxn]]]
-                    if d < 1.5*rsum:
+                    if d < 2.5*rsum:
                         tmp_neighl.append(idxn)
                         tmp_distl.append(d)
                         tmp_rsuml.append(rsum)
