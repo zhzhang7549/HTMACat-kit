@@ -662,17 +662,35 @@ class Builder(AdsorptionSites):
                 slabs_list.append(copy.deepcopy(slab))
                 dealt_positions = a.get_positions()
                 min_z = np.min(dealt_positions[:,2]) #得到分子z轴最小值
-                base_position[2] = max_z - min_z + 1.8 # 吸附物种最低原子应在slab以上1.8A
+                base_position[2] = max_z - min_z + 2.2 # 吸附物种最低原子处于slab以上2.2A，随后再尝试降低
                 a.translate(base_position)
                 slabs_list[-1] += a
                 # Add graph connections
                 for metal_index in self.index[u]:
                     slabs_list[-1].graph.add_edge(metal_index, bond + n)
-                #
+                # 评估当前构型并不断尝试将吸附物降低以尽可能贴近表面，直到score不再提高
+                score_tmp = utils.score_configuration_hetero(coords=slabs_list[-1].get_positions(),
+                                                             symbols=slabs_list[-1].get_chemical_symbols(),
+                                                             z_surf=max_z)
+                score_before = -100.0
+                while score_tmp > score_before:
+                    slabs_list[-1] = copy.deepcopy(slab)
+                    a.translate([0, 0, -0.02])
+                    slabs_list[-1] += a
+                    for metal_index in self.index[u]:
+                        slabs_list[-1].graph.add_edge(metal_index, bond + n)
+                    score_before = score_tmp
+                    score_tmp = utils.score_configuration_hetero(coords=slabs_list[-1].get_positions(),
+                                                                 symbols=slabs_list[-1].get_chemical_symbols(),
+                                                                 z_surf=max_z)
+                # 复位：撤销最后一次下降操作
+                slabs_list[-1] = copy.deepcopy(slab)
+                a.translate([0, 0, -0.02])
+                slabs_list[-1] += a
+                for metal_index in self.index[u]:
+                    slabs_list[-1].graph.add_edge(metal_index, bond + n)
+                score_configurations.append(score_before)
                 # show & write log (mainly for score_configurations)
-                score_configurations.append( utils.score_configuration_hetero(coords=slabs_list[-1].get_positions(),
-                                                                              symbols=slabs_list[-1].get_chemical_symbols(),
-                                                                              z_surf=max_z) )
                 str_log = str(ia) + ' | score = ' + str(np.round(score_configurations[-1],3)).ljust(8) + '(x,y,z): ' + str(base_position)
                 ### print(str_log)
                 with open('score_log.txt', 'a') as f:
