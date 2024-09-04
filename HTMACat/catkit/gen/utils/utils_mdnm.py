@@ -378,7 +378,11 @@ pauling_en = {
 }
 
 def fitness_01(distance, rsum, EN): # hetero <-> metallic_site
-    return EN * ( (2*distance/rsum)**(-1) - (2*distance/rsum)**-2 ) * 4
+    if distance < 1e-4:
+        d = 1e-4
+    else:
+        d = distance
+    return EN * ( (2*d/rsum)**(-1) - (2*d/rsum)**-2 ) * 4
 
 def score_configuration_hetero(coords, symbols, z_surf):
     # print('*** test', fitness_01(1.8, 1.8, 3.0)) # = 3
@@ -395,10 +399,10 @@ def score_configuration_hetero(coords, symbols, z_surf):
             tmp_distl = []
             tmp_rsuml = []
             for idxn,coordn in enumerate(coords):
-                if abs(coordn[2] - z_surf) < 0.1:
+                if abs(coordn[2] - z_surf) < 1.0: # 识别表层原子
                     d = np.sqrt( np.sum( np.dot(coord-coordn,coord-coordn) ) )
                     rsum = covalent_radii[atomic_numbers[symbols[idx]]] + covalent_radii[atomic_numbers[symbols[idxn]]]
-                    if d < 1.5*rsum:
+                    if d < 2.5*rsum:
                         tmp_neighl.append(idxn)
                         tmp_distl.append(d)
                         tmp_rsuml.append(rsum)
@@ -412,4 +416,14 @@ def score_configuration_hetero(coords, symbols, z_surf):
             score = score + fitness_01(distance=neigh_dist_of_hetero[idx_a][idx_n],
                                        rsum=neigh_rsum_of_hetero[idx_a][idx_n],
                                        EN=pauling_en[symbols[atom_i]])
+    # 检查是否有与表面原子距离过近的H（比H、?共价半径之和小0.1A以上），如果有，将此构型的整体score乘以一个小于1的惩罚系数（每有一对过近的H-?则产生一项惩罚系数）
+    for idxh,coordh in enumerate(coords):
+        if (coordh[2] > z_surf) and (symbols[idxh] == 'H'):
+            for idxsurf,coordsurf in enumerate(coords):
+                if abs(coordsurf[2] - z_surf) < 1.0: # 识别表层原子
+                    d = np.sqrt( np.sum( np.dot(coordh-coordsurf,coordh-coordsurf) ) )
+                    rsum = covalent_radii[atomic_numbers[symbols[idxh]]] + covalent_radii[atomic_numbers[symbols[idxsurf]]]
+                    if d < rsum - 0.1: # 距离太近，触发惩罚项
+                        k = d / rsum
+                        score = score * k
     return score
