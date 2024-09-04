@@ -4,6 +4,7 @@ from HTMACat.IO import print_templator, out_templator_file, yaml2dict
 from HTMACat.CRN import runCRN_net
 from HTMACat.CRN import run_crnconfiggen
 from HTMACat.Split import coads_split
+from HTMACat.Show_net import draw_net
 from HTMACat.__version__ import __title__, __version__
 from pathlib import *
 import shutil
@@ -73,8 +74,13 @@ def complete(in_dir: str = typer.Option("./", "-i", "--inputdir", help="relative
 @htmat.command(context_settings=CONTEXT_SETTINGS)
 def crn():
     """Generate the Chemical Reaction Network."""
-    with open('CRNGenerator_log.txt', 'w') as f:
-        f.write(runCRN_net())
+    try:
+        log_content = runCRN_net()
+        with open('CRNGenerator_log.txt', 'w', encoding='utf-8') as f:
+            f.write(log_content)
+    except Exception as e:
+        print(f"Error generating CRN: {e}")
+
 
 @htmat.command(context_settings=CONTEXT_SETTINGS)
 def crngen():
@@ -86,3 +92,7 @@ def split(filename,key_atom):
     """split configuration."""
     print("split ... ...")
     coads_split(filename,key_atom)
+@htmat.command(context_settings=CONTEXT_SETTINGS)
+def drawnet():
+    """Draw the Chemical Reaction Network."""
+    draw_net()
