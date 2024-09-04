@@ -181,12 +181,18 @@ class Adsorption(Structure):
                         coord_ = coord
                     # confirm z coord (height of the adsorbate)
                     for bond_id in bond_atom_ids:
-                        slab_ad += [builder._single_adsorption(ads_use, bond=bond_id, site_index=site_,
+                        # zjwang 20240815 为适配direction='hetero'而改动，可接受多个slab作为list返回
+                        tmp = builder._single_adsorption(ads_use, bond=bond_id, site_index=site_,
                                                                rotation_mode =_rotation_mode,
                                                                rotation_args ={'vec_to_neigh_imgsite':vec_to_neigh_imgsite},
                                                                direction_mode=_direction_mode,
                                                                site_coord = coord_,
-                                                               z_bias=_z_bias)]
+                                                               z_bias=_z_bias)
+                        if type(tmp) == list:
+                            for ii, t in enumerate(tmp):
+                                slab_ad += [t]
+                        else:
+                            slab_ad += [tmp]
                         #if len(bond_atom_ids) > 1:
                         #    slab_ad += [builder._single_adsorption(ads_use, bond=bond_id, site_index=j, direction_mode='decision_boundary', direction_args=bond_atom_ids)]
             else:
@@ -196,11 +202,17 @@ class Adsorption(Structure):
                     coord_ = None
                     if 'site_coords' in self.settings.keys():
                         coord_ = coord
-                    slab_ad += [builder._single_adsorption(ads_use, bond=0, site_index=site_,
+                    tmp = builder._single_adsorption(ads_use, bond=0, site_index=site_,
                                                            rotation_mode =_rotation_mode,
                                                            rotation_args ={'vec_to_neigh_imgsite':vec_to_neigh_imgsite},
+                                                           direction_mode=_direction_mode,
                                                            site_coord = coord_,
-                                                           z_bias=_z_bias)]
+                                                           z_bias=_z_bias)
+                    if type(tmp) == list:
+                        for ii, t in enumerate(tmp):
+                            slab_ad += [t]
+                    else:
+                        slab_ad += [tmp]
         return slab_ad
 
     def Construct_double_adsorption(self):
