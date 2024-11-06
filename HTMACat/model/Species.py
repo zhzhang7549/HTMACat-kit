@@ -28,7 +28,7 @@ class ABS_Species(ABC):
         return self.alias_name
 
     def out_file_name(self):
-        return self.get_formular()
+        return self.alias_name
 
     @abstractmethod
     def get_molecule(self, randomSeed=0) -> Gratoms:
@@ -80,7 +80,10 @@ class File_Species(ABS_Species):
         self.filetype = typename
 
     def out_file_name(self):
-        return self.alias_name
+        if "." in self.form:
+            return self.form.split(".")[0]
+        else:
+            return self.form
 
     @property
     def atoms(self) -> Atoms:
@@ -115,10 +118,13 @@ class Sml_Species(ABS_Species):
         super().__init__(form, formtype, alias_name)
 
     def out_file_name(self):
-        ads1 = self.get_formular()
-        mole = Chem.AddHs(Chem.MolFromSmiles(ads1))
-        ads1 = rdMolDescriptors.CalcMolFormula(mole)
-        return ads1
+        if self.alias_name == self.form:
+            ads1 = self.get_formular()
+            mole = Chem.AddHs(Chem.MolFromSmiles(ads1))
+            ads1 = rdMolDescriptors.CalcMolFormula(mole)
+            return ads1
+        else:
+            return self.alias_name.split("(")[0]
 
     def get_molecule(self, randomSeed=0) -> Gratoms:
         ### Changed by ZhaojieWang, 20230829 (<>改进：需能处理离子键可连接的SMILES)

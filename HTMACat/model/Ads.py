@@ -77,7 +77,7 @@ class Adsorption(Structure):
             else:
                 ele = ''.join(self.get_sites()[1:]) ### wzj 20230518
                 slabs_ads = self.Construct_single_adsorption(ele=ele)
-        elif self.get_sites()[0] == '2':
+        elif self.get_sites()[0] == '2': ## 使用2时有bug
             slabs_ads = self.Construct_double_adsorption()
         else:
             raise ValueError('Supports only "1" "2" adsorption sites for ads!')
@@ -92,6 +92,7 @@ class Adsorption(Structure):
         p1 = self.substrate.property["p1"]
         p1_symb = self.substrate.property["p1_symb"]
         slabs_ads_near = []
+        layer = self.substrate.get_layers()
         for slb in slabs_ads:
             (
                 bind_adatoms,
@@ -100,14 +101,9 @@ class Adsorption(Structure):
                 adspecie,
                 bind_surfatoms,
                 bind_surfatoms_symb,
-            ) = get_binding_adatom(slb)
-            if self.get_sites() == "1" and (set(p1_symb) & set(bind_surfatoms_symb[0])):
-                slabs_ads_near += [slb]
-            elif (
-                self.get_sites() == "2"
-                and (set(p1_symb) & set(bind_surfatoms_symb[0]))
-                or (set(p1_symb) & set(bind_surfatoms_symb[0]))
-            ):
+            ) = get_binding_adatom(slb,layer)
+            # print(self.get_sites(), set(p1_symb), bind_surfatoms_symb,set(bind_surfatoms_symb[0]))
+            if (set(p1_symb) & set(bind_surfatoms_symb[0])):
                 slabs_ads_near += [slb]
         return slabs_ads_near
     
@@ -245,7 +241,7 @@ class Adsorption(Structure):
     @classmethod
     def get_settings(cls,settings_dict={}):
         default_settings = {'conform_rand':1,
-                            'direction':'bond_atom',
+                            'direction':'default',
                             'rotation':'vnn',
                             'z_bias':float(0),
                             }
@@ -290,6 +286,7 @@ class Coadsorption(Adsorption):
         p1 = self.substrate.property["p1"]
         p1_symb = self.substrate.property["p1_symb"]
         slabs_ads_near = []
+        layer = self.substrate.get_layers()
         for slb in slabs_ads:
             (
                 bind_adatoms,
@@ -298,7 +295,7 @@ class Coadsorption(Adsorption):
                 adspecie,
                 bind_surfatoms,
                 bind_surfatoms_symb,
-            ) = get_binding_adatom(slb)
+            ) = get_binding_adatom(slb,layer)
             bind_surfatoms_symb_all = sum(bind_surfatoms_symb, [])
             if set(p1_symb) & set(bind_surfatoms_symb_all):
                 slabs_ads_near += [slb]
