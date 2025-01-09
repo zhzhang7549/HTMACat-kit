@@ -25,7 +25,7 @@ class Adsorption(Structure):
                 "NH2": [2],
                 "NH": [2, 4],
                 "N": [2, 4],
-                "O": [2, 4],
+                "O": [3],
                 "OH": [2, 4],
                 "NO": [2, 4],
                 "H2O": [1],
@@ -136,7 +136,21 @@ class Adsorption(Structure):
         imagesites_distances = [np.sqrt(np.sum(np.square(v[:2]-coord_images[0][:2]))) for v in coord_images]
         d = np.min(imagesites_distances[1:])
         return d
-
+    
+    def adjust_fractional_coordinates(self, atoms):
+        cell = atoms.get_cell()
+        fractional_coords = atoms.get_scaled_positions()
+        
+        # 调整x坐标范围
+        fractional_coords[:, 0] += 0.5
+        fractional_coords[:, 0] %= 1.0  # 将x坐标重新映射到0到1之间
+        # 调整y坐标范围
+        fractional_coords[:, 1] += 0.5
+        fractional_coords[:, 1] %= 1.0  # 将y坐标重新映射到0到1之间
+        
+        # 将调整后的分数坐标应用回结构
+        atoms.set_scaled_positions(fractional_coords)
+        
     def Construct_single_adsorption(self, ele=None):
         _direction_mode = self.settings['direction']
         _rotation_mode = self.settings['rotation']
@@ -184,11 +198,13 @@ class Adsorption(Structure):
                                                                direction_mode=_direction_mode,
                                                                site_coord = coord_,
                                                                z_bias=_z_bias)
-                        if type(tmp) == list:
+                        if isinstance(tmp, list):
                             for ii, t in enumerate(tmp):
+                                self.adjust_fractional_coordinates(t)
                                 slab_ad += [t]
                         else:
-                            slab_ad += [tmp]
+                            self.adjust_fractional_coordinates(tmp)
+                            slab_ad.append(tmp)
                         #if len(bond_atom_ids) > 1:
                         #    slab_ad += [builder._single_adsorption(ads_use, bond=bond_id, site_index=j, direction_mode='decision_boundary', direction_args=bond_atom_ids)]
             else:
@@ -204,11 +220,15 @@ class Adsorption(Structure):
                                                            direction_mode=_direction_mode,
                                                            site_coord = coord_,
                                                            z_bias=_z_bias)
-                    if type(tmp) == list:
+                    if isinstance(tmp, list):
                         for ii, t in enumerate(tmp):
-                            slab_ad += [t]
+                            # 调整分数坐标范围
+                            self.adjust_fractional_coordinates(t)
+                            slab_ad.append(t)
                     else:
-                        slab_ad += [tmp]
+                        # 调整分数坐标范围
+                        self.adjust_fractional_coordinates(tmp)
+                        slab_ad.append(tmp)
         return slab_ad
 
     def Construct_double_adsorption(self):
@@ -452,11 +472,13 @@ class Coadsorption(Adsorption):
                 bind_surfatoms,
                 bind_surfatoms_symb,
             ) = get_binding_adatom(adslab)
+            print(f"Adsorption  {j+1}: {adspecie, bind_type_symb}")
             adspecie_tmp, bind_type_symb_tmp = [], []
             for k, spe in enumerate(adspecie):
                 if spe in ads_type.keys():
                     adspecie_tmp += [spe]
                     bind_type_symb_tmp += [bind_type_symb[k]]
+            print(f"Adsorption configuration1 {j+1}: {adspecie_tmp, bind_type_symb_tmp}")
             if len(adspecie_tmp) < 2:
                 # print('Can not identify the config!')
                 slab_ad_final += [adslab]
